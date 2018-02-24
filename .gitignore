@@ -5,6 +5,7 @@ c/*.test
 cpp/*.test
 *.pyc
 *.vglog
+a.out
 
 client/mosquitto_pub
 client/mosquitto_sub

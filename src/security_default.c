@@ -771,6 +771,12 @@ int mosquitto_security_apply_default(struct mosquitto_db *db)
 			while(acl_user_tail){
 				if(acl_user_tail->username){
 					if(context->username){
+						if(acl_user_tail->username[strlen(acl_user_tail->username)-1]=='+') {
+							if(!strncmp(context->username,acl_user_tail->username,strlen(acl_user_tail->username)-1)){
+								context->acl_list = acl_user_tail;
+								break;
+							}
+						} else
 						if(!strcmp(acl_user_tail->username, context->username)){
 							context->acl_list = acl_user_tail;
 							break;

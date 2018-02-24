@@ -488,9 +488,17 @@ int mqtt3_handle_connect(struct mosquitto_db *db, struct mosquitto *context)
 		acl_tail = db->acl_list;
 		while(acl_tail){
 			if(context->username){
-				if(acl_tail->username && !strcmp(context->username, acl_tail->username)){
-					context->acl_list = acl_tail;
-					break;
+				if(acl_tail->username){
+					if(acl_tail->username[strlen(acl_tail->username)-1]=='+') {
+						if(!strncmp(context->username,acl_tail->username,strlen(acl_tail->username)-1)){
+							context->acl_list = acl_tail;
+							break;
+						}
+					} else
+					if (!strcmp(context->username, acl_tail->username)){
+						context->acl_list = acl_tail;
+						break;
+					}
 				}
 			}else{
 				if(acl_tail->username == NULL){
