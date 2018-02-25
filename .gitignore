@@ -6,6 +6,8 @@ cpp/*.test
 *.pyc
 *.vglog
 a.out
+build.cmd
+install.cmd
 
 client/mosquitto_pub
 client/mosquitto_sub
