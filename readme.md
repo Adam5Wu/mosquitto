@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.org/Adam5Wu/mosquitto.svg?branch=adam5wu/master)](https://travis-ci.org/Adam5Wu/mosquitto)
 [![GitHub issues](https://img.shields.io/github/issues/Adam5Wu/mosquitto.svg)](https://github.com/Adam5Wu/mosquitto/issues)
 [![GitHub forks](https://img.shields.io/github/forks/Adam5Wu/mosquitto.svg)](https://github.com/Adam5Wu/mosquitto/network)
-[![License](https://img.shields.io/github/license/Adam5Wu/mosquitto.svg)](./LICENSE)
+[![License](https://img.shields.io/github/license/Adam5Wu/mosquitto.svg)](./LICENSE.txt)
 
 Mosquitto is an open source implementation of a server for version 3.1 and 3.1.1 of the MQTT protocol.
 Altered for the following new feature:
