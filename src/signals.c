@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016-2018 Roger Light <roger@atchoo.org>
+Copyright (c) 2016-2019 Roger Light <roger@atchoo.org>
 
 All rights reserved. This program and the accompanying materials
 are made available under the terms of the Eclipse Public License v1.0
@@ -64,6 +64,8 @@ extern int run;
 /* Signal handler for SIGHUP - flag a config reload. */
 void handle_sighup(int signal)
 {
+	UNUSED(signal);
+
 	flag_reload = true;
 }
 #endif
@@ -71,12 +73,16 @@ void handle_sighup(int signal)
 /* Signal handler for SIGINT and SIGTERM - just stop gracefully. */
 void handle_sigint(int signal)
 {
+	UNUSED(signal);
+
 	run = 0;
 }
 
 /* Signal handler for SIGUSR1 - backup the db. */
 void handle_sigusr1(int signal)
 {
+	UNUSED(signal);
+
 #ifdef WITH_PERSISTENCE
 	flag_db_backup = true;
 #endif
@@ -85,6 +91,8 @@ void handle_sigusr1(int signal)
 /* Signal handler for SIGUSR2 - print subscription / retained tree. */
 void handle_sigusr2(int signal)
 {
+	UNUSED(signal);
+
 	flag_tree_print = true;
 }
 
@@ -105,7 +113,7 @@ void handle_sigusr2(int signal)
 DWORD WINAPI SigThreadProc(void* data)
 {
 	TCHAR evt_name[MAX_PATH];
-	static HANDLE evt[4];
+	static HANDLE evt[3];
 	int pid = GetCurrentProcessId();
 
 	sprintf_s(evt_name, MAX_PATH, "mosq%d_shutdown", pid);

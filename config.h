@@ -1,11 +1,24 @@
 #ifndef CONFIG_H
+#define CONFIG_H
 /* ============================================================
- * Control compile time options.
- * ============================================================
- *
- * Compile time options have moved to config.mk.
- */
+ * Platform options
+ * ============================================================ */
 
+#ifdef __APPLE__
+#  define __DARWIN_C_SOURCE
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__SYMBIAN32__) || defined(__QNX__)
+#  define _XOPEN_SOURCE 700
+#  define __BSD_VISIBLE 1
+#  define HAVE_NETINET_IN_H
+#else
+#  define _XOPEN_SOURCE 700
+#  define _DEFAULT_SOURCE 1
+#  define _POSIX_C_SOURCE 200809L
+#endif
+
+#define _GNU_SOURCE
+
+#define OPENSSL_LOAD_CONF
 
 /* ============================================================
  * Compatibility defines
@@ -27,16 +40,30 @@
 #define uthash_malloc(sz) mosquitto__malloc(sz)
 #define uthash_free(ptr,sz) mosquitto__free(ptr)
 
-#ifdef __APPLE__
-#  define __DARWIN_C_SOURCE
-#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__SYMBIAN32__) || defined(__QNX__)
-#  define _XOPEN_SOURCE 700
-#  define __BSD_VISIBLE 1
-#  define HAVE_NETINET_IN_H
-#else
-#  define _XOPEN_SOURCE 700
-#  define _DEFAULT_SOURCE 1
-#  define _POSIX_C_SOURCE 200809L
+
+#ifdef WITH_TLS
+#  include <openssl/opensslconf.h>
+#  if defined(WITH_TLS_PSK) && !defined(OPENSSL_NO_PSK)
+#    define FINAL_WITH_TLS_PSK
+#  endif
+#endif
+
+
+#ifdef __COVERITY__
+#  include <stdint.h>
+/* These are "wrong", but we don't use them so it doesn't matter */
+#  define _Float32 uint32_t
+#  define _Float32x uint32_t
+#  define _Float64 uint64_t
+#  define _Float64x uint64_t
+#  define _Float128 uint64_t
+#endif
+
+#define UNUSED(A) (void)(A)
+
+/* Android Bionic libpthread implementation doesn't have pthread_cancel */
+#ifndef ANDROID
+#  define HAVE_PTHREAD_CANCEL
 #endif
 
 #endif

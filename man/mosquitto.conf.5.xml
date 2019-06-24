@@ -64,15 +64,17 @@
 			certificate in order to connect successfully. In this case, the
 			second and third options, use_identity_as_username and
 			use_subject_as_username, become relevant. If set to true,
-			use_identity_as_user causes the Common Name (CN) from the client
-			certificate to be used instead of the MQTT username for access
-			control purposes. The password is not replaced because it is
-			assumed that only authenticated clients have valid certificates. If
-			use_identity_as_username is false, the client must authenticate as
-			normal (if required by password_file) through the MQTT options. The
-			same principle applies for the use_subject_as_username option, but
-			the entire certificate subject is used as the username instead of
-			just the CN.</para>
+			use_identity_as_username causes the Common Name (CN) from the
+			client certificate to be used instead of the MQTT username for
+			access control purposes. The password is not used because it is
+			assumed that only authenticated clients have valid certificates.
+			This means that any CA certificates you include in cafile or capath
+			will be able to issue client certificates that are valid for
+			connecting to your broker. If use_identity_as_username is false,
+			the client must authenticate as normal (if required by
+			password_file) through the MQTT options. The same principle applies
+			for the use_subject_as_username option, but the entire certificate
+			subject is used as the username instead of just the CN.</para>
 		<para>When using pre-shared-key based encryption through the psk_hint
 			and psk_file options, the client must provide a valid identity and
 			key in order to connect to the broker before any MQTT communication
@@ -163,8 +165,10 @@
 						then another means of connection should be created to
 						control authenticated client access.</para>
 					<para>Defaults to <replaceable>true</replaceable> if no
-						other security options are set. If any other
-						authentication options are set, then
+						other security options are set. If <option>password_file</option>
+						or <option>psk_file</option> is set, or if an
+						authentication plugin is loaded which implements
+						username/password or TLS-PSK checks, then
 						<option>allow_anonymous</option> defaults to
 						<replaceable>false</replaceable>.</para>
 					<para>Reloaded on reload signal.</para>
@@ -196,6 +200,17 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
+				<term><option>allow_zero_length_clientid</option> [ true | false ]</term>
+				<listitem>
+					<para>MQTT 3.1.1 allows clients to connect with a zero
+						length client id and have the broker generate a client
+						id for them. Use this option to allow/disallow this
+						behaviour. Defaults to true.</para>
+					<para>See also the <option>auto_id_prefix</option> option.</para>
+					<para>Reloaded on reload signal.</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
 				<term><option>auth_opt_*</option> <replaceable>value</replaceable></term>
 				<listitem>
 					<para>Options to be passed to the auth plugin. See the
@@ -215,7 +230,7 @@
 					<para>If <option>password_file</option>, or
 						<option>acl_file</option> are used in the config file
 						alongsize <option>auth_plugin</option>, the plugin
-						checks will run after the build in checks.</para>
+						checks will run after the built in checks.</para>
 					<para>Not currently reloaded on reload signal.</para>
 				</listitem>
 			</varlistentry>
@@ -245,6 +260,17 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
+				<term><option>auto_id_prefix</option> <replaceable>prefix</replaceable></term>
+				<listitem>
+					<para>If <option>allow_zero_length_clientid</option> is
+						<replaceable>true</replaceable>, this option allows you
+						to set a string that will be prefixed to the
+						automatically generated client ids to aid visibility in
+						logs. Defaults to <option>auto-</option>.</para>
+					<para>Reloaded on reload signal.</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
 				<term><option>autosave_interval</option> <replaceable>seconds</replaceable></term>
 				<listitem>
 					<para>The number of seconds that mosquitto will wait
@@ -270,6 +296,24 @@
 						<option>autosave_interval</option> as a time in
 						seconds.</para>
 					<para>Reloaded on reload signal.</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>check_retain_source</option> [ true | false ]</term>
+				<listitem>
+					<para>This option affects the scenario when a client
+						subscribes to a topic that has retained messages. It is
+						possible that the client that published the retained
+						message to the topic had access at the time they
+						published, but that access has been subsequently
+						removed. If <option>check_retain_source</option> is set
+						to true, the default, the source of a retained message
+						will be checked for access rights before it is
+						republished. When set to false, no check will be made
+						and the retained message will always be
+						published.</para>
+					<para>This option applies globally, regardless of the
+						<option>per_listener_settings</option> option.</para>
 				</listitem>
 			</varlistentry>
 			<varlistentry>
@@ -307,6 +351,55 @@
 						file. This option will only be processed from the main
 						configuration file. The directory specified must not
 						contain the main configuration file.</para>
+					<para>The configuration files in
+						<option>include_dir</option> are loaded in case
+						sensitive alphabetical order, with the upper case of
+						each letter ordered before the lower case of the same
+						letter.</para>
+						<example title="Load Order for include_dir" label="Load Order for include_dir">
+							<para>Given the files
+								<replaceable>b.conf</replaceable>,
+								<replaceable>A.conf</replaceable>,
+								<replaceable>01.conf</replaceable>,
+								<replaceable>a.conf</replaceable>,
+								<replaceable>B.conf</replaceable>, and
+								<replaceable>00.conf</replaceable> inside
+								<option>include_dir</option>, the config files
+								would be loaded in this order:</para>
+						<programlisting language="config">
+00.conf
+01.conf
+A.conf
+a.conf
+B.conf
+b.conf
+</programlisting></example>
+					<para>If this option is used multiple times, then each
+						<option>include_dir</option> option is processed
+						completely in the order that they are written in the
+						main configuration file.</para>
+						<example title="Load Order for Multiple include_dir" label="Load Order for Multiple include_dir">
+							<para>Assuming a directory
+								<replaceable>one.d</replaceable> containing
+								files <replaceable>B.conf</replaceable> and
+								<replaceable>C.conf</replaceable>, and a second
+								directory <replaceable>two.d</replaceable>
+								containing files
+								<replaceable>A.conf</replaceable> and
+								<replaceable>D.conf</replaceable>, and a
+								config:</para>
+						<programlisting language="config">
+include_dir one.d
+include_dir two.d
+</programlisting><para>Then the config files would be loaded in this order:</para>
+						<programlisting language="config">
+# files from one.d
+B.conf
+C.conf
+# files from two.d
+A.conf
+D.conf
+</programlisting></example>
 				</listitem>
 			</varlistentry>
 			<varlistentry>
@@ -366,6 +459,21 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
+				<term><option>log_timestamp_format</option> <replaceable>format</replaceable></term>
+				<listitem>
+					<para>Set the format of the log timestamp. If left unset,
+						this is the number of seconds since the Unix epoch.
+						This option is a free text string which will be passed
+						to the strftime function as the format specifier. To
+						get an ISO 8601 datetime, for example:</para>
+					<programlisting language="config">
+log_timestamp_format %Y-%m-%dT%H:%M:%S
+					</programlisting>
+					<para>Reloaded on reload signal.</para>
+				</listitem>
+			</varlistentry>
+
+			<varlistentry>
 				<term><option>log_type</option> <replaceable>types</replaceable></term>
 				<listitem>
 					<para>Choose types of messages to log. Possible types are:
@@ -414,6 +522,47 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
+				<term><option>max_keepalive</option> <replaceable>value</replaceable></term>
+				<listitem>
+					<para>For MQTT v5 clients, it is possible to have the
+						server send a "server keepalive" value that will
+						override the keepalive value set by the client.  This
+						is intended to be used as a mechanism to say that the
+						server will disconnect the client earlier than it
+						anticipated, and that the client should use the new
+						keepalive value. The max_keepalive option allows you to
+						specify that clients may only connect with keepalive
+						less than or equal to this value, otherwise they will
+						be sent a server keepalive telling them to use
+						max_keepalive. This only applies to MQTT v5 clients.
+						The maximum value allowable, and default value, is
+						65535. Do not set below 10 seconds.</para>
+					<para>Reloaded on reload signal.</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><option>max_packet_size</option> <replaceable>value</replaceable></term>
+				<listitem>
+					<para>For MQTT v5 clients, it is possible to have the
+						server send a "maximum packet size" value that will
+						instruct the client it will not accept MQTT packets
+						with size greater than <option>value</option> bytes.
+						This applies to the full MQTT packet, not just the
+						payload. Setting this option to a positive value will
+						set the maximum packet size to that number of bytes. If
+						a client sends a packet which is larger than this
+						value, it will be disconnected. This applies to all
+						clients regardless of the protocol version they are
+						using, but v3.1.1 and earlier clients will of course
+						not have received the maximum packet size information.
+						Defaults to no limit.</para>
+					<para>Setting below 20 bytes is forbidden because it is
+						likely to interfere with normal client operation even
+						with small payloads.</para>
+					<para>Reloaded on reload signal.</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
 				<term><option>max_queued_bytes</option> <replaceable>count</replaceable></term>
 				<listitem>
 					<para>QoS 1 and 2 messages above those currently in-flight will be
@@ -440,8 +589,26 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
+				<term><option>memory_limit</option> <replaceable>limit</replaceable></term>
+				<listitem>
+                    <para>
+						This option sets the maximum number of heap memory bytes that the broker
+						will allocate, and hence sets a hard limit on memory use by the broker.
+						Memory requests that exceed this value will be denied. The effect will
+						vary depending on what has been denied. If an incoming message is being
+						processed, then the message will be dropped and the publishing client
+						will be disconnected. If an outgoing message is being sent, then the
+						individual message will be dropped and the receiving client will be
+						disconnected. Defaults to no limit.</para>
+					<para>This option is only available if memory tracking support is compiled
+						in.</para>
+					<para>Reloaded on reload signal. Setting to a lower value and reloading will
+						not result in memory being freed.</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
 				<term><option>message_size_limit</option> <replaceable>limit</replaceable></term>
-				<listitem> 
+				<listitem>
 					<para>This option sets the maximum publish payload size
 						that the broker will allow. Received messages that
 						exceed this size will not be accepted by the broker.
@@ -493,6 +660,10 @@
 						<option>auth_plugin</option>,
 						<option>auth_opt_*</option>,
 						<option>auto_id_prefix</option>.</para>
+					<para>Note that if set to true, then a durable client (i.e.
+						with clean session set to false) that has disconnected
+						will use the ACL settings defined for the listener that
+						it was most recently connected to.</para>
 					<para>The default behaviour is for this to be set to
 						<replaceable>false</replaceable>, which maintains the
 						settings behaviour from previous versions of
@@ -515,6 +686,13 @@
 						signal. If <replaceable>false</replaceable>, the data
 						will be stored in memory only. Defaults to
 						<replaceable>false</replaceable>.</para>
+					<para>The persistence file may change its format in a new
+						version. The broker can currently read all old formats,
+						but will only save in the latest format. It should always
+						be safe to upgrade, but cautious users may wish to take a
+						copy of the persistence file before installing a new
+						version so that they can roll back to an earlier version
+						if necessary.</para>
 					<para>Reloaded on reload signal.</para>
 				</listitem>
 			</varlistentry>
@@ -607,6 +785,16 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
+				<term><option>retain_available</option> [ true | false ]</term>
+				<listitem>
+					<para>If set to false, then retained messages are not
+						supported. Clients that send a message with the retain
+						bit will be disconnected if this option is set to
+						false. Defaults to true.</para>
+					<para>Reloaded on reload signal.</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
 				<term><option>retained_persistence</option> [ true | false ]</term>
 				<listitem>
 					<para>This is a synonym of the <option>persistence</option>
@@ -622,19 +810,6 @@
 							has the effect of reducing latency of some messages
 							at potentially increasing the number of TCP packets
 							being sent. Defaults to false.</para>
-					<para>Reloaded on reload signal.</para>
-				</listitem>
-			</varlistentry>
-			<varlistentry>
-				<term><option>store_clean_interval</option> <replaceable>seconds</replaceable></term>
-				<listitem>
-					<para>The integer number of seconds between the internal
-						message store being cleaned of messages that are no
-						longer referenced.  Lower values will result in lower
-						memory usage but more processor time, higher values
-						will have the opposite effect. Setting a value of 0
-						means the unreferenced messages will be disposed of as
-						quickly as possible. Defaults to 10 seconds.</para>
 					<para>Reloaded on reload signal.</para>
 				</listitem>
 			</varlistentry>
@@ -707,6 +882,32 @@
 					</listitem>
 				</varlistentry>
 				<varlistentry>
+					<term><option>bind_interface</option> <replaceable>device</replaceable></term>
+					<listitem>
+						<para>Listen for incoming network connections only on
+							the specified interface. This is similar to the
+							<option>bind_address</option> option but is useful
+							when an interface has multiple addresses or the
+							address may change.</para>
+						<para>It is valid to use this option together with
+							<option>bind_address</option> for the default
+							listener, or the <replaceable>bind
+								address/host</replaceable> part of the
+							<option>listener</option> definition.  Care should
+							be taken to ensure that the address being bound to
+							is on the interface being bound to.  If you set the
+							<option>bind_interface</option> to be
+							<replaceable>eth0</replaceable>, and
+							<option>bind_address</option> to
+							<replaceable>127.0.0.1</replaceable>, then the
+							broker will start correctly but you will be unable
+							to connect.</para>
+						<para>This option is currently only available on
+							Linux, and requires elevated privileges.</para>
+						<para>Not reloaded on reload signal.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
 					<term><option>http_dir</option> <replaceable>directory</replaceable></term>
 					<listitem>
 						<para>When a listener is using the websockets protocol,
@@ -752,6 +953,30 @@
 					</listitem>
 				</varlistentry>
 				<varlistentry>
+					<term><option>maximum_qos</option> <replaceable>count</replaceable></term>
+					<listitem>
+						<para>Limit the QoS value allowed when using this
+							listener. Defaults to 2, which means any QoS can be
+							used. Set to 0 or 1 to limit to those QoS values.
+							This makes use of an MQTT v5 feature to notify
+							clients of the limitation. MQTT v3.1.1 clients will
+							not be aware of the limitation. Clients publshing
+							to this listener with a too-high QoS will be
+							disconnected.</para>
+						<para>Not reloaded on reload signal.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
+					<term><option>max_topic_alias</option> <replaceable>number</replaceable></term>
+					<listitem>
+						<para>This option sets the maximum number topic aliases
+							that an MQTT v5 client is allowed to create. It
+							applies per listener. Defaults to 10. Set to 0 to
+							disallow topic aliases.</para>
+						<para>Not reloaded on reload signal.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
 					<term><option>mount_point</option> <replaceable>topic prefix</replaceable></term>
 					<listitem>
 						<para>This option is used with the listener option to
@@ -763,7 +988,7 @@
 							client connected to a listener with mount point
 							<replaceable>example</replaceable> can only see
 							messages that are published in the topic hierarchy
-							<replaceable>example</replaceable> and above.</para>
+							<replaceable>example</replaceable> and below.</para>
 						<para>Not reloaded on reload signal.</para>
 					</listitem>
 				</varlistentry>
@@ -788,6 +1013,27 @@
 							<option>keyfile</option> and
 							<option>ciphers</option> options are
 							supported.</para>
+						<para>Not reloaded on reload signal.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
+					<term><option>socket_domain</option> [ ipv4 | ipv6 ]</term>
+					<listitem>
+						<para>By default, a listener will attempt to listen on
+							all supported IP protocol versions. If you do not
+							have an IPv4 or IPv6 interface you may wish to
+							disable support for either of those protocol
+							versions. In particular, note that due to the
+							limitations of the websockets library, it will only
+							ever attempt to open IPv6 sockets if IPv6 support
+							is compiled in, and so will fail if IPv6 is not
+							available.</para>
+						<para>Set to <option>ipv4</option> to force the
+							listener to only use IPv4, or set to
+							<option>ipv6</option> to force the listener to only
+							use IPv6. If you want support for both IPv4 and
+							IPv6, then do not use the
+							<option>socket_domain</option> option.</para>
 						<para>Not reloaded on reload signal.</para>
 					</listitem>
 				</varlistentry>
@@ -822,6 +1068,19 @@
 						<para>To use this option, <option>log_type
 								websockets</option> must also be enabled.
 							Defaults to 0.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
+					<term><option>websockets_headers_size</option> <replaceable>size</replaceable></term>
+					<listitem>
+                        <para>Change the websockets headers size. This is a
+							global option, it is not possible to set per
+							listener. This option sets the size of the buffer
+							used in the libwebsockets library when reading HTTP
+							headers. If you are passing large header data such
+							as cookies then you may need to increase this
+							value. If left unset, or set to 0, then the default
+							of 1024 bytes will be used.</para>
 					</listitem>
 				</varlistentry>
 			</variablelist>
@@ -884,6 +1143,18 @@
 					</listitem>
 				</varlistentry>
 				<varlistentry>
+					<term><option>dhparamfile</option> <replaceable>file path</replaceable></term>
+					<listitem>
+						<para>To allow the use of ephemeral DH key exchange,
+							which provides forward security, the listener must
+							load DH parameters. This can be specified with the
+							dhparamfile option. The dhparamfile can be
+							generated with the command e.g.</para>
+						<programlisting>
+openssl dhparam -out dhparam.pem 2048</programlisting>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
 					<term><option>keyfile</option> <replaceable>file path</replaceable></term>
 					<listitem>
 						<para>Path to the PEM encoded keyfile.</para>
@@ -907,15 +1178,45 @@
 					</listitem>
 				</varlistentry>
 				<varlistentry>
+					<term><option>tls_engine</option> <replaceable>engine</replaceable></term>
+					<listitem>
+						<para>A valid openssl engine id. These can be listed with
+						openssl engine command.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
+					<term><option>tls_engine_kpass_sha1</option> <replaceable>engine_kpass_sha1</replaceable></term>
+					<listitem>
+						<para>SHA1 of the private key password when using an
+							TLS engine.  Some TLS engines such as the TPM
+							engine may require the use of a password in order
+							to be accessed.  This option allows a hex encoded
+							SHA1 hash of the password to the engine directly,
+							instead of the user being prompted for the
+							password.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
+					<term><option>tls_keyform</option> [ pem | engine ]</term>
+					<listitem>
+						<para>Specifies the type of private key in use when
+							making TLS connections.. This can be "pem" or
+							"engine". This parameter is useful when a TPM
+							module is being used and the private key has been
+							created with it. Defaults to "pem", which means
+							normal private key files are used.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
 					<term><option>tls_version</option> <replaceable>version</replaceable></term>
 					<listitem>
 						<para>Configure the version of the TLS protocol to be
 							used for this listener. Possible values are
-							<replaceable>tlsv1.2</replaceable>,
-							<replaceable>tlsv1.1</replaceable> and
-							<replaceable>tlsv1</replaceable>. If left unset,
-							the default of allowing all of TLS v1.2, v1.1 and
-							v1.0 is used.</para>
+							<replaceable>tlsv1.3</replaceable>,
+							<replaceable>tlsv1.2</replaceable> and
+							<replaceable>tlsv1.1</replaceable>. If left unset,
+							the default of allowing all of TLS v1.3, v1.2 and
+							v1.1 is used.</para>
 					</listitem>
 				</varlistentry>
 				<varlistentry>
@@ -994,11 +1295,11 @@
 					<listitem>
 						<para>Configure the version of the TLS protocol to be
 							used for this listener. Possible values are
-							<replaceable>tlsv1.2</replaceable>,
-							<replaceable>tlsv1.1</replaceable> and
-							<replaceable>tlsv1</replaceable>. If left unset,
-							the default of allowing all of TLS v1.2, v1.1 and
-							v1.0 is used.</para>
+							<replaceable>tlsv1.3</replaceable>,
+							<replaceable>tlsv1.2</replaceable> and
+							<replaceable>tlsv1.1</replaceable>. If left unset,
+							the default of allowing all of TLS v1.3, v1.2 and
+							v1.1 is used.</para>
 					</listitem>
 				</varlistentry>
 				<varlistentry>
@@ -1154,6 +1455,7 @@
 						is 1 then the connection is active, or 0 if the
 						connection has failed. Defaults to
 						<replaceable>true</replaceable>.</para>
+					<para>This uses the Last Will and Testament (LWT) feature.</para>
 				</listitem>
 			</varlistentry>
 			 <varlistentry>
@@ -1213,11 +1515,25 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
-				<term><option>restart_timeout</option> <replaceable>value</replaceable></term>
+				<term><option>restart_timeout</option> <replaceable>base cap</replaceable></term>
+				<term><option>restart_timeout</option> <replaceable>constant</replaceable></term>
 				<listitem>
 					<para>Set the amount of time a bridge using the automatic
-						start type will wait until attempting to reconnect.
-						Defaults to 30 seconds.</para>
+						start type will wait until attempting to reconnect.</para>
+					<para>This option can be configured to use a constant delay
+						time in seconds, or to use a backoff mechanism based on
+						"Decorrelated Jitter", which adds a degree of
+						randomness to when the restart occurs, starting at the
+						base and increasing up to the cap. Set a constant
+						timeout of 20 seconds:</para>
+						<programlisting language="config">
+restart_timeout 20</programlisting>
+					<para>Set backoff with a base (start value) of 10 seconds and a cap (upper
+						limit) of 60 seconds:</para>
+						<programlisting language="config">
+restart_timeout 10 30</programlisting>
+					<para>Defaults to jitter with a base of 5 seconds and cap
+						of 30 seconds.</para>
 				</listitem>
 			</varlistentry>
 			<varlistentry>
@@ -1316,27 +1632,35 @@
 						<replaceable>""</replaceable>. Using the empty marker
 						for the topic itself is also valid. The table below
 						defines what combination of empty or value is
-						valid.</para>
+						valid. The <option>Full Local Topic</option> and
+						<option>Full Remote Topic</option> show the resulting
+						topics that would be used on the local and remote ends
+						of the bridge. For example, for the first table row if
+						you publish to <option>L/topic</option> on the local
+						broker, then the remote broker will receive a message
+						on the topic <option>R/topic</option>.</para>
+
 					<informaltable>
-						<tgroup cols="5">
+						<tgroup cols="6">
 							<thead>
 								<row>
-									<entry></entry>
-									<entry><emphasis>Topic</emphasis></entry>
+									<entry><emphasis>Pattern</emphasis></entry>
 									<entry><emphasis>Local Prefix</emphasis></entry>
 									<entry><emphasis>Remote Prefix</emphasis></entry>
 									<entry><emphasis>Validity</emphasis></entry>
+									<entry><emphasis>Full Local Topic</emphasis></entry>
+									<entry><emphasis>Full Remote Topic</emphasis></entry>
 							</row>
 							</thead>
 							<tbody>
-								<row><entry>1</entry><entry>value</entry><entry>value</entry><entry>value</entry><entry>valid</entry></row>
-								<row><entry>2</entry><entry>value</entry><entry>value</entry><entry>""</entry><entry>valid</entry></row>
-								<row><entry>3</entry><entry>value</entry><entry>""</entry><entry>value</entry><entry>valid</entry></row>
-								<row><entry>4</entry><entry>value</entry><entry>""</entry><entry>""</entry><entry>valid (no remapping)</entry></row>
-								<row><entry>5</entry><entry>""</entry><entry>value</entry><entry>value</entry><entry>valid (remap single local topic to remote)</entry></row>
-								<row><entry>6</entry><entry>""</entry><entry>value</entry><entry>""</entry><entry>invalid</entry></row>
-								<row><entry>7</entry><entry>""</entry><entry>""</entry><entry>value</entry><entry>invalid</entry></row>
-								<row><entry>8</entry><entry>""</entry><entry>""</entry><entry>""</entry><entry>invalid</entry></row>
+								<row><entry>pattern</entry><entry>L/</entry><entry>R/</entry><entry>valid</entry><entry>L/pattern</entry><entry>R/pattern</entry></row>
+								<row><entry>pattern</entry><entry>L/</entry><entry>""</entry><entry>valid</entry><entry>L/pattern</entry><entry>pattern</entry></row>
+								<row><entry>pattern</entry><entry>""</entry><entry>R/</entry><entry>valid</entry><entry>pattern</entry><entry>R/pattern</entry></row>
+								<row><entry>pattern</entry><entry>""</entry><entry>""</entry><entry>valid (no remapping)</entry><entry>pattern</entry><entry>pattern</entry></row>
+								<row><entry>""</entry><entry>local</entry><entry>remote</entry><entry>valid (remap single local topic to remote)</entry><entry>local</entry><entry>remote</entry></row>
+								<row><entry>""</entry><entry>local</entry><entry>""</entry><entry>invalid</entry><entry></entry><entry></entry></row>
+								<row><entry>""</entry><entry>""</entry><entry>remote</entry><entry>invalid</entry><entry></entry><entry></entry></row>
+								<row><entry>""</entry><entry>""</entry><entry>""</entry><entry>invalid</entry><entry></entry><entry></entry></row>
 							</tbody>
 						</tgroup>
 					</informaltable>
@@ -1393,6 +1717,14 @@ topic clients/total in 0 test/mosquitto/org $SYS/broker/
 			<para>The following options are available for all bridges to
 				configure SSL/TLS support.</para>
 			<variablelist>
+				<varlistentry>
+					<term><option>bridge_alpn</option> <replaceable>alpn</replaceable></term>
+					<listitem>
+						<para>Configure the application layer protocol negotiation
+							option for the TLS session.  Useful for brokers that support
+							both websockets and MQTT on the same port.</para>
+					</listitem>
+				</varlistentry>
 				<varlistentry>
 					<term><option>bridge_cafile</option> <replaceable>file path</replaceable></term>
 					<listitem>
@@ -1481,13 +1813,20 @@ topic clients/total in 0 test/mosquitto/org $SYS/broker/
 					</listitem>
 				</varlistentry>
 				<varlistentry>
+					<term><option>bridge_require_ocsp</option> [ true | false ]</term>
+					<listitem>
+						<para>When set to true, the bridge requires OCSP on the TLS
+							connection it opens as client.</para>
+					</listitem>
+				</varlistentry>
+				<varlistentry>
 					<term><option>bridge_tls_version</option> <replaceable>version</replaceable></term>
 					<listitem>
 						<para>Configure the version of the TLS protocol to be
 							used for this bridge. Possible values are
-							<replaceable>tlsv1.2</replaceable>,
-							<replaceable>tlsv1.1</replaceable> and
-							<replaceable>tlsv1</replaceable>. Defaults to
+							<replaceable>tlsv1.3</replaceable>,
+							<replaceable>tlsv1.2</replaceable> and
+							<replaceable>tlsv1.1</replaceable>. Defaults to
 							<replaceable>tlsv1.2</replaceable>. The remote
 							broker must support the same version of TLS for the
 							connection to succeed.</para>

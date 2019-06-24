@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2018 Roger Light <roger@atchoo.org>
+Copyright (c) 2011-2019 Roger Light <roger@atchoo.org>
 
 All rights reserved. This program and the accompanying materials
 are made available under the terms of the Eclipse Public License v1.0
@@ -27,7 +27,7 @@ void *mosquitto__thread_main(void *obj);
 
 int mosquitto_loop_start(struct mosquitto *mosq)
 {
-#ifdef WITH_THREADING
+#if defined(WITH_THREADING) && defined(HAVE_PTHREAD_CANCEL)
 	if(!mosq || mosq->threaded != mosq_ts_none) return MOSQ_ERR_INVAL;
 
 	mosq->threaded = mosq_ts_self;
@@ -43,7 +43,7 @@ int mosquitto_loop_start(struct mosquitto *mosq)
 
 int mosquitto_loop_stop(struct mosquitto *mosq, bool force)
 {
-#ifdef WITH_THREADING
+#if defined(WITH_THREADING) && defined(HAVE_PTHREAD_CANCEL)
 #  ifndef WITH_BROKER
 	char sockpair_data = 0;
 #  endif

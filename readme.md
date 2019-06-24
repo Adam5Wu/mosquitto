@@ -4,7 +4,7 @@
 [![GitHub forks](https://img.shields.io/github/forks/Adam5Wu/mosquitto.svg)](https://github.com/Adam5Wu/mosquitto/network)
 [![License](https://img.shields.io/github/license/Adam5Wu/mosquitto.svg)](./LICENSE.txt)
 
-Mosquitto is an open source implementation of a server for version 3.1 and 3.1.1 of the MQTT protocol.
+Mosquitto is an open source implementation of a server for version 5.0, 3.1.1 and 3.1 of the MQTT protocol.
 Altered for the following new feature:
 - ACL file user name prefix matching
 
